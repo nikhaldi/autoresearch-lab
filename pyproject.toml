@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autoresearch_lab"]
+
+[project]
+name = "autoresearch-lab"
+version = "0.1.0"
+description = "Framework for generic AI research loops with measurable benchmarks"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.12"
+authors = [{ name = "Nik Haldimann" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "click~=8.3",
+    "dacite~=1.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/nikhaldi/autoreseach-lab"
+Repository = "https://github.com/nikhaldi/autoreseach-lab"
+Issues = "https://github.com/nikhaldi/autoreseach-lab/issues"
+
+[project.scripts]
+arl = "autoresearch_lab.cli:cli"
+
+[dependency-groups]
+dev = [
+    "ruff~=0.8",
+    "pytest~=8.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = ["src/autoresearch_lab/templates"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["autoresearch_lab"]

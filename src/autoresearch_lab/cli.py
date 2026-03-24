@@ -1,0 +1,433 @@
+"""arl — CLI for Autoresearch Lab.
+
+All commands are implicitly scoped to the nearest lab.toml.
+"""
+
+from __future__ import annotations
+
+import importlib.resources
+import json
+import os
+import subprocess
+import sys
+from contextlib import contextmanager
+from pathlib import Path
+
+import click
+
+from autoresearch_lab.config import LAB_CONFIG_FILENAME, BackendConfig, LabConfig
+from autoresearch_lab.harness.loader import load_backend
+from autoresearch_lab.harness.results import read_results
+from autoresearch_lab.sandbox.orchestrator import (
+    CONTAINER_DATA_DIR,
+    CONTAINER_PIPELINE_DIR,
+    CONTAINER_VERDICT_PATH,
+    RunConfig,
+    run_session,
+    start_host_service,
+)
+
+_TEMPLATES = importlib.resources.files("autoresearch_lab").joinpath("templates")
+
+
+def _echo_success(msg: str) -> None:
+    click.echo(click.style(msg, fg="green"))
+
+
+def _echo_warn(msg: str) -> None:
+    click.echo(click.style(msg, fg="yellow"))
+
+
+def _echo_fail(msg: str) -> None:
+    click.echo(click.style(msg, fg="red"))
+
+
+def _find_lab() -> tuple[LabConfig, Path]:
+    """Find and load the nearest lab.toml."""
+    lab_root = LabConfig.find_lab_root()
+    config = LabConfig.load(lab_root)
+    return config, lab_root
+
+
+def _render_template(template_name: str, **kwargs: str) -> str:
+    """Read a template file and substitute placeholders."""
+    content = (_TEMPLATES / template_name).read_text()
+    if kwargs:
+        content = content.format(**kwargs)
+    return content
+
+
+@contextmanager
+def _maybe_host_service(
+    config: LabConfig,
+    lab_root: Path,
+    data_dir: Path,
+    pipeline_dir: Path,
+):
+    """Start the host service if configured and not already
+    available (i.e. inside the container).
+
+    When ARL_HOST_SERVICE_URL is already set (inside the
+    container), this is a no-op. When running locally, starts
+    the service, sets the env var, and cleans up on exit.
+    """
+    host_service = config.backend.host_service
+    if not host_service or os.environ.get("ARL_HOST_SERVICE_URL"):
+        yield
+        return
+
+    proc = start_host_service(host_service, lab_root, data_dir, pipeline_dir)
+    os.environ["ARL_HOST_SERVICE_URL"] = f"http://localhost:{host_service.port}"
+    try:
+        yield
+    finally:
+        os.environ.pop("ARL_HOST_SERVICE_URL", None)
+        proc.terminate()
+        proc.wait(timeout=5)
+
+
+@click.group()
+@click.version_option(package_name="autoresearch-lab")
+def cli():
+    """Autoresearch Lab — automated AI research loops."""
+
+
+@cli.command()
+@click.option("--name", prompt="Lab name", help="Name for this lab")
+def init(name: str):
+    """Initialize a new lab in the current directory."""
+    lab_root = Path.cwd()
+    config_path = lab_root / LAB_CONFIG_FILENAME
+
+    if config_path.exists():
+        click.echo(f"Error: {config_path} already exists", err=True)
+        sys.exit(1)
+
+    config_path.write_text(_render_template("lab.toml", name=name))
+
+    backend_path = lab_root / BackendConfig.module
+    if not backend_path.exists():
+        backend_path.write_text(_render_template("backend.py"))
+
+    agent_md = lab_root / LabConfig.agent_instructions
+    if not agent_md.exists():
+        agent_md.write_text(
+            _render_template(
+                "AGENT.md",
+                name=name,
+                pipeline_dir=CONTAINER_PIPELINE_DIR,
+                data_dir=CONTAINER_DATA_DIR,
+                verdict_path=CONTAINER_VERDICT_PATH,
+            )
+        )
+
+    (lab_root / LabConfig.results_file).touch()
+
+    click.echo(f"Initialized lab '{name}' in {lab_root}")
+    click.echo(f"  Set pipeline_dir in {config_path.name} to point at your code")
+    click.echo("  Write agent instructions in AGENT.md")
+    click.echo(f"  Implement evaluation logic in {BackendConfig.module}")
+
+
+def _preflight_checks(config: LabConfig, lab_root: Path) -> None:
+    """Run pre-flight checks. Exits with error if required checks fail."""
+    failed = False
+
+    def _check(label: str, ok: bool, required: bool = True) -> None:
+        nonlocal failed
+        if ok:
+            _echo_success(f"  {label}: ok")
+        elif required:
+            failed = True
+            _echo_fail(f"  {label}: FAILED")
+        else:
+            _echo_warn(f"  {label}: not set")
+
+    click.echo("Pre-flight checks:")
+    result = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    _check("Docker", result.returncode == 0)
+    _check(
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_API_KEY" in os.environ,
+        required=False,
+    )
+    _check(
+        f"Backend ({config.backend.module})",
+        (lab_root / config.backend.module).exists(),
+    )
+    _check(
+        "Pipeline dir",
+        (lab_root / config.pipeline_dir).exists(),
+    )
+    _check(
+        "Agent instructions",
+        (lab_root / config.agent_instructions).exists(),
+    )
+
+    if failed:
+        _echo_fail("\nPre-flight checks failed. Aborting.")
+        sys.exit(1)
+    click.echo()
+
+
+@cli.command()
+@click.option("--data", required=True, help="Path to read-only data directory")
+@click.option(
+    "--max-iterations",
+    default=RunConfig.max_iterations,
+    help="Max experiments",
+)
+@click.option(
+    "--max-hours",
+    default=RunConfig.max_hours,
+    help="Max session hours",
+)
+@click.option(
+    "--max-cost",
+    default=RunConfig.max_cost,
+    help="Max USD spend (0=unlimited)",
+)
+@click.option(
+    "--target-score",
+    default=RunConfig.target_score,
+    help="Stop when score reaches this value (0=disabled)",
+)
+@click.option(
+    "--max-restarts",
+    default=RunConfig.max_restarts,
+    help="Max container restarts before stopping",
+)
+@click.option(
+    "--iteration-timeout",
+    default=RunConfig.iteration_timeout,
+    help="Seconds before restarting a stuck iteration (0=disabled)",
+)
+@click.option("--model", default=RunConfig.model, help="Claude model")
+@click.option("--use-oauth-osx", is_flag=True, help="Use OAuth from Keychain")
+@click.option("--prompt", default=RunConfig.prompt, help="Additional agent instruction")
+@click.option("--dry-run", is_flag=True, help="Print config and exit")
+def run(**kwargs):
+    """Start the autonomous research loop."""
+    config, lab_root = _find_lab()
+
+    image_tag = f"arl-agent-{config.safe_name}"
+    run_cfg = RunConfig(**kwargs, docker_image=image_tag)
+
+    if run_cfg.dry_run:
+        click.echo(f"Lab:       {config.name}")
+        click.echo(f"Root:      {lab_root}")
+        click.echo(f"Pipeline:  {lab_root / config.pipeline_dir}")
+        click.echo(f"Backend:   {config.backend.module}:{config.backend.cls}")
+        click.echo(f"Data:      {run_cfg.data}")
+        click.echo(f"Model:     {run_cfg.model}")
+        return
+
+    _preflight_checks(config, lab_root)
+
+    # Build base image
+    base_dockerfile = Path(__file__).parent / "sandbox" / "Dockerfile"
+
+    # If running from a source checkout, install from local source.
+    # Otherwise the Dockerfile defaults to installing from PyPI.
+    package_root = Path(__file__).parent.parent.parent
+    build_args = []
+    if (package_root / "pyproject.toml").exists():
+        build_args = [
+            "--build-arg",
+            "ARL_INSTALL_SPEC=/tmp/autoresearch-lab",
+        ]
+        # We need the source in the build context for COPY
+        context = str(package_root)
+    else:
+        from importlib.metadata import version
+
+        arl_version = version("autoresearch-lab")
+        build_args = [
+            "--build-arg",
+            f"ARL_INSTALL_SPEC=autoresearch-lab=={arl_version}",
+        ]
+        context = str(base_dockerfile.parent)
+
+    click.echo("Building base agent container...")
+    result = subprocess.run(
+        [
+            "docker",
+            "build",
+            "-t",
+            "arl-agent-base",
+            "-f",
+            str(base_dockerfile),
+            *build_args,
+            context,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        click.echo(f"Docker build failed:\n{result.stderr}", err=True)
+        sys.exit(1)
+
+    # Build custom image if lab provides a Dockerfile
+    if config.sandbox.dockerfile:
+        custom_dockerfile = (lab_root / config.sandbox.dockerfile).resolve()
+        if not custom_dockerfile.exists():
+            click.echo(
+                f"Error: sandbox dockerfile not found: {custom_dockerfile}",
+                err=True,
+            )
+            sys.exit(1)
+        click.echo(f"Building custom agent container ({image_tag})...")
+        result = subprocess.run(
+            [
+                "docker",
+                "build",
+                "-t",
+                image_tag,
+                "-f",
+                str(custom_dockerfile),
+                str(custom_dockerfile.parent),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            click.echo(f"Docker build failed:\n{result.stderr}", err=True)
+            sys.exit(1)
+    else:
+        subprocess.run(
+            ["docker", "tag", "arl-agent-base", image_tag],
+            capture_output=True,
+        )
+
+    run_session(run_cfg, config, lab_root)
+
+
+@cli.command()
+@click.option("--data", required=True, help="Path to read-only data directory")
+def eval(data):
+    """Run pipeline evaluation. Prints metrics as JSON."""
+    config, lab_root = _find_lab()
+
+    pipeline_dir = (lab_root / config.pipeline_dir).resolve()
+    data_dir = Path(data).resolve()
+
+    if not pipeline_dir.exists():
+        click.echo(f"Error: pipeline dir not found: {pipeline_dir}", err=True)
+        sys.exit(1)
+    if not data_dir.exists():
+        click.echo(f"Error: data dir not found: {data_dir}", err=True)
+        sys.exit(1)
+
+    with _maybe_host_service(config, lab_root, data_dir, pipeline_dir):
+        backend = load_backend(lab_root, config.backend)
+        backend.setup()
+        try:
+            result = backend.evaluate(pipeline_dir, data_dir)
+        finally:
+            backend.teardown()
+
+    output = {"score": result.score, **result.metrics}
+    output["num_samples"] = len(result.sample_results)
+    click.echo(json.dumps(output, indent=2))
+
+
+@cli.command()
+@click.option("--data", required=True, help="Path to read-only data directory")
+@click.option("--top", type=int, default=None, help="Show only N worst samples")
+def diagnose(data, top):
+    """Per-sample error analysis, worst first."""
+    config, lab_root = _find_lab()
+
+    pipeline_dir = (lab_root / config.pipeline_dir).resolve()
+    data_dir = Path(data).resolve()
+
+    with _maybe_host_service(config, lab_root, data_dir, pipeline_dir):
+        backend = load_backend(lab_root, config.backend)
+        backend.setup()
+        try:
+            result = backend.evaluate(pipeline_dir, data_dir)
+        finally:
+            backend.teardown()
+
+    # Sort by score, worst first
+    sorted_samples = sorted(
+        result.sample_results,
+        key=lambda s: s.score,
+        reverse=True,
+    )
+
+    if top:
+        sorted_samples = sorted_samples[:top]
+
+    output = {
+        "score": result.score,
+        "metrics": result.metrics,
+        "per_sample": [
+            {
+                "sample_id": s.sample_id,
+                "score": s.score,
+                "error": s.error,
+                **s.extra,
+            }
+            for s in sorted_samples
+        ],
+    }
+
+    click.echo(json.dumps(output, indent=2))
+
+
+@cli.command()
+@click.option("--best", is_flag=True, help="Show only the best result")
+@click.option("--last", type=int, default=None, help="Show last N results")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["table", "json", "csv"]),
+    default="table",
+    help="Output format",
+)
+def results(best, last, fmt):
+    """Print experiment history."""
+    config, lab_root = _find_lab()
+
+    results_path = lab_root / config.results_file
+    rows = read_results(results_path)
+
+    if not rows:
+        click.echo("No results yet.")
+        return
+
+    if best:
+        rows = [min(rows, key=lambda r: float(r.get("score", "999")))]
+
+    if last:
+        rows = rows[-last:]
+
+    if fmt == "json":
+        click.echo(json.dumps(rows, indent=2))
+    elif fmt == "csv":
+        if rows:
+            click.echo("\t".join(rows[0].keys()))
+            for row in rows:
+                click.echo("\t".join(row.values()))
+    else:
+        for row in rows:
+            kept = (
+                click.style("KEEP", fg="green")
+                if row.get("kept") == "yes"
+                else click.style("DISC", fg="yellow")
+            )
+            exp = row.get("experiment_id", "?")
+            score = row.get("score", "?")
+            notes = row.get("notes", "")
+            # Parse extra metrics from JSON column
+            try:
+                extra_metrics = json.loads(row.get("metrics", "{}"))
+            except json.JSONDecodeError:
+                extra_metrics = {}
+            metrics_str = "  ".join(
+                f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
+                for k, v in extra_metrics.items()
+            )
+            extra = f"  {metrics_str}" if metrics_str else ""
+            click.echo(f"  {kept} {exp:>12s}  score={score}{extra}  {notes}")

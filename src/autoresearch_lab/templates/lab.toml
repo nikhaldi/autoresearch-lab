@@ -1,0 +1,21 @@
+[lab]
+name = "{name}"
+# Path to the code the agent is allowed to modify during the research loop.
+# This is the only directory mounted read-write in the sandbox container.
+# Can be relative (to this file) or absolute.
+pipeline_dir = "pipeline"
+
+[backend]
+module = "backend.py"
+class = "Backend"
+
+# Uncomment if evaluation needs a host-side service (e.g. a local model server).
+# The service runs on the host; the port is forwarded into the container.
+# $ARL_DATA_DIR and $ARL_PIPELINE_DIR are set by the orchestrator.
+# [backend.host_service]
+# command = "python server.py --port 9100 --data-dir $ARL_DATA_DIR"
+# port = 9100
+
+# Uncomment to use a custom Dockerfile (must start with FROM arl-agent-base):
+# [sandbox]
+# dockerfile = "Dockerfile"
