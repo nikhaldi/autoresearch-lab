@@ -7,7 +7,7 @@ packages = ["src/autoresearch_lab"]
 
 [project]
 name = "autoresearch-lab"
-version = "0.1.0"
+version = "0.1.1"
 description = "Framework for generic AI research loops with measurable benchmarks"
 readme = "README.md"
 license = "MIT"
@@ -30,9 +30,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nikhaldi/autoreseach-lab"
-Repository = "https://github.com/nikhaldi/autoreseach-lab"
-Issues = "https://github.com/nikhaldi/autoreseach-lab/issues"
+Homepage = "https://github.com/nikhaldi/autoresearch-lab"
+Repository = "https://github.com/nikhaldi/autoresearch-lab"
+Issues = "https://github.com/nikhaldi/autoresearch-lab/issues"
 
 [project.scripts]
 arl = "autoresearch_lab.cli:cli"
