@@ -1,5 +1,6 @@
 """Tests for the arl CLI commands."""
 
+import json
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -68,7 +69,6 @@ class TestInit:
         assert "cool-project" in agent_md
 
 
-
 class TestRun:
     def _init_lab(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -81,9 +81,7 @@ class TestRun:
     def test_dry_run(self, tmp_path, monkeypatch):
         runner = self._init_lab(tmp_path, monkeypatch)
 
-        result = runner.invoke(
-            cli, ["run", "--data", "mydata", "--dry-run"]
-        )
+        result = runner.invoke(cli, ["run", "--data", "mydata", "--dry-run"])
 
         assert result.exit_code == 0
         assert "Lab:       test-lab" in result.output
@@ -94,13 +92,19 @@ class TestRun:
     def test_dry_run_custom_options(self, tmp_path, monkeypatch):
         runner = self._init_lab(tmp_path, monkeypatch)
 
-        result = runner.invoke(cli, [
-            "run",
-            "--data", "mydata",
-            "--model", "claude-sonnet-4-6",
-            "--max-iterations", "10",
-            "--dry-run",
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                "--data",
+                "mydata",
+                "--model",
+                "claude-sonnet-4-6",
+                "--max-iterations",
+                "10",
+                "--dry-run",
+            ],
+        )
 
         assert result.exit_code == 0
         assert "Model:     claude-sonnet-4-6" in result.output
@@ -150,9 +154,7 @@ class TestRun:
             return result
 
         with patch("autoresearch_lab.cli.subprocess.run", side_effect=_mock_run):
-            result = runner.invoke(
-                cli, ["run", "--data", "mydata"]
-            )
+            result = runner.invoke(cli, ["run", "--data", "mydata"])
 
         assert result.exit_code != 0
         assert "Docker build failed" in result.output
@@ -171,9 +173,7 @@ class TestRun:
         ):
             mock_run.return_value.returncode = 0
 
-            result = runner.invoke(
-                cli, ["run", "--data", "mydata"]
-            )
+            result = runner.invoke(cli, ["run", "--data", "mydata"])
 
         assert result.exit_code == 0
         assert "Building custom agent container" in result.output
@@ -188,9 +188,7 @@ class TestRun:
         with patch("autoresearch_lab.cli.subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
 
-            result = runner.invoke(
-                cli, ["run", "--data", "mydata"]
-            )
+            result = runner.invoke(cli, ["run", "--data", "mydata"])
 
         assert result.exit_code != 0
         assert "sandbox dockerfile not found" in result.output
@@ -230,7 +228,7 @@ class TestEval:
         result = runner.invoke(cli, ["eval", "--data", "mydata"])
 
         assert result.exit_code == 0
-        import json
+
         output = json.loads(result.output)
         assert output["score"] == 0.042
         assert output["accuracy"] == 0.958
@@ -281,7 +279,7 @@ class TestDiagnose:
         result = runner.invoke(cli, ["diagnose", "--data", "mydata"])
 
         assert result.exit_code == 0
-        import json
+
         output = json.loads(result.output)
         assert output["score"] == 0.042
         assert output["metrics"]["accuracy"] == 0.958
@@ -292,7 +290,6 @@ class TestDiagnose:
 
         result = runner.invoke(cli, ["diagnose", "--data", "mydata"])
 
-        import json
         output = json.loads(result.output)
         scores = [s["score"] for s in output["per_sample"]]
         assert scores == sorted(scores, reverse=True)
@@ -303,7 +300,7 @@ class TestDiagnose:
         result = runner.invoke(cli, ["diagnose", "--data", "mydata", "--top", "1"])
 
         assert result.exit_code == 0
-        import json
+
         output = json.loads(result.output)
         assert len(output["per_sample"]) == 1
         assert output["per_sample"][0]["sample_id"] == "s2"
@@ -372,7 +369,7 @@ class TestResults:
         result = runner.invoke(cli, ["results", "--format", "json"])
 
         assert result.exit_code == 0
-        import json
+
         rows = json.loads(result.output)
         assert len(rows) == 3
         assert rows[0]["experiment_id"] == "exp_001"
@@ -384,7 +381,7 @@ class TestResults:
         result = runner.invoke(cli, ["results", "--format", "json", "--best"])
 
         assert result.exit_code == 0
-        import json
+
         rows = json.loads(result.output)
         assert len(rows) == 1
         assert rows[0]["experiment_id"] == "exp_003"
@@ -396,7 +393,7 @@ class TestResults:
         result = runner.invoke(cli, ["results", "--format", "json", "--last", "2"])
 
         assert result.exit_code == 0
-        import json
+
         rows = json.loads(result.output)
         assert len(rows) == 2
         assert rows[0]["experiment_id"] == "exp_002"
@@ -411,5 +408,3 @@ class TestResults:
 
         assert result.exit_code == 0
         assert "No results yet" in result.output
-
-

@@ -161,8 +161,10 @@ class TestRunSession:
     def test_stops_on_plateau(self, tmp_path, capsys):
         config = _init_lab(tmp_path)
         run_cfg = RunConfig(
-            max_iterations=50, plateau_threshold=3,
-            data="data", iteration_timeout=0,
+            max_iterations=50,
+            plateau_threshold=3,
+            data="data",
+            iteration_timeout=0,
         )
 
         verdict = {"action": "discard", "score": 0.5, "notes": "bad"}
@@ -186,15 +188,17 @@ class TestRunSession:
     def test_container_crash_restarts(self, tmp_path, capsys):
         config = _init_lab(tmp_path)
         run_cfg = RunConfig(
-            max_iterations=5, max_restarts=2,
-            data="data", iteration_timeout=0,
+            max_iterations=5,
+            max_restarts=2,
+            data="data",
+            iteration_timeout=0,
         )
 
         # Container exits immediately, then restarts, then delivers a verdict
         containers = [
-            _make_container([1]),       # crash
-            _make_container([1]),       # crash
-            _make_container([1]),       # crash — exceeds max_restarts
+            _make_container([1]),  # crash
+            _make_container([1]),  # crash
+            _make_container([1]),  # crash — exceeds max_restarts
         ]
         container_iter = iter(containers)
 

@@ -35,15 +35,17 @@ def append_result(
         writer = csv.writer(f, delimiter="\t")
         if write_header:
             writer.writerow(HEADER)
-        writer.writerow([
-            experiment_id,
-            datetime.datetime.now(datetime.UTC).isoformat(),
-            f"{score:.6f}",
-            json.dumps(metrics) if metrics else "{}",
-            "yes" if kept else "no",
-            commit_sha,
-            notes,
-        ])
+        writer.writerow(
+            [
+                experiment_id,
+                datetime.datetime.now(datetime.UTC).isoformat(),
+                f"{score:.6f}",
+                json.dumps(metrics) if metrics else "{}",
+                "yes" if kept else "no",
+                commit_sha,
+                notes,
+            ]
+        )
 
 
 def read_results(results_path: Path) -> list[dict[str, str]]:

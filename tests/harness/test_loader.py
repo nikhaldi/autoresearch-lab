@@ -49,9 +49,7 @@ class TestLoadBackend:
         subdir = tmp_path / "backends"
         subdir.mkdir()
         (subdir / "my_eval.py").write_text(VALID_BACKEND)
-        config = BackendConfig(
-            module="backends/my_eval.py", cls="MyBackend"
-        )
+        config = BackendConfig(module="backends/my_eval.py", cls="MyBackend")
 
         backend = load_backend(tmp_path, config)
 

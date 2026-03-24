@@ -34,13 +34,9 @@ def load_backend(lab_root: Path, backend_config: BackendConfig) -> EvalBackend:
 
     cls = getattr(module, backend_config.cls, None)
     if cls is None:
-        raise AttributeError(
-            f"Class {backend_config.cls!r} not found in {module_path}"
-        )
+        raise AttributeError(f"Class {backend_config.cls!r} not found in {module_path}")
 
     instance = cls()
     if not isinstance(instance, EvalBackend):
-        raise TypeError(
-            f"{backend_config.cls} does not implement EvalBackend"
-        )
+        raise TypeError(f"{backend_config.cls} does not implement EvalBackend")
     return instance

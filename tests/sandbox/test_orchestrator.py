@@ -41,18 +41,14 @@ class TestCheckStopConditions:
 
     def test_plateau(self):
         config = RunConfig(plateau_threshold=3)
-        state = SessionState(
-            start_time=time.time(), consecutive_discards=3
-        )
+        state = SessionState(start_time=time.time(), consecutive_discards=3)
         result = check_stop_conditions(config, state)
         assert result is not None
         assert "Plateau" in result
 
     def test_below_plateau(self):
         config = RunConfig(plateau_threshold=3)
-        state = SessionState(
-            start_time=time.time(), consecutive_discards=2
-        )
+        state = SessionState(start_time=time.time(), consecutive_discards=2)
         assert check_stop_conditions(config, state) is None
 
     def test_target_score_reached(self):

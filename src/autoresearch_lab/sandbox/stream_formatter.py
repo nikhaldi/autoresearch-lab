@@ -55,9 +55,7 @@ class CostTracker:
 
         input_cost = _COST_PER_INPUT_TOKEN.get(model, _DEFAULT_INPUT_COST)
         output_cost = _COST_PER_OUTPUT_TOKEN.get(model, _DEFAULT_OUTPUT_COST)
-        cache_cost = _COST_PER_CACHE_READ_TOKEN.get(
-            model, _DEFAULT_CACHE_READ_COST
-        )
+        cache_cost = _COST_PER_CACHE_READ_TOKEN.get(model, _DEFAULT_CACHE_READ_COST)
 
         self.add(
             input_tokens * input_cost
@@ -71,9 +69,7 @@ class CostTracker:
             self._total_cost = cost
 
 
-def start_stream_thread(
-    pipe: IO[bytes], cost_tracker: CostTracker
-) -> threading.Thread:
+def start_stream_thread(pipe: IO[bytes], cost_tracker: CostTracker) -> threading.Thread:
     """Spawn a daemon thread that reads stream-json from *pipe* and prints
     formatted output to stdout. Returns the thread (already started)."""
     thread = threading.Thread(

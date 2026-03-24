@@ -79,12 +79,8 @@ class TestAppendResult:
 
     def test_kept_values(self, tmp_path):
         path = tmp_path / "results.tsv"
-        append_result(
-            path, experiment_id="a", score=0.1, kept=True, commit_sha="x"
-        )
-        append_result(
-            path, experiment_id="b", score=0.2, kept=False, commit_sha="y"
-        )
+        append_result(path, experiment_id="a", score=0.1, kept=True, commit_sha="x")
+        append_result(path, experiment_id="b", score=0.2, kept=False, commit_sha="y")
 
         rows = read_results(path)
         assert rows[0]["kept"] == "yes"
