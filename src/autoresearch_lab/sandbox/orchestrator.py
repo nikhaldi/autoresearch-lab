@@ -327,6 +327,7 @@ def start_container(
     cmd.append(agent_prompt)
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    assert proc.stdout is not None
     start_stream_thread(proc.stdout, cost_tracker)
     return proc
 

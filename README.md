@@ -174,6 +174,7 @@ uv sync              # Install dependencies (includes dev tools)
 uv run pytest        # Run tests
 uv run ruff check    # Lint
 uv run ruff format   # Format code
+uv run pyright       # Type check
 ```
 
 ## License
