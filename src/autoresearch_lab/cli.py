@@ -5,7 +5,6 @@ All commands are implicitly scoped to the nearest lab.toml.
 
 from __future__ import annotations
 
-import importlib.resources
 import json
 import os
 import subprocess
@@ -19,15 +18,12 @@ from autoresearch_lab.config import LAB_CONFIG_FILENAME, BackendConfig, LabConfi
 from autoresearch_lab.harness.loader import load_backend
 from autoresearch_lab.harness.results import read_results
 from autoresearch_lab.sandbox.orchestrator import (
-    CONTAINER_DATA_DIR,
     CONTAINER_PIPELINE_DIR,
-    CONTAINER_VERDICT_PATH,
     RunConfig,
     run_session,
     start_host_service,
 )
-
-_TEMPLATES = importlib.resources.files("autoresearch_lab").joinpath("templates")
+from autoresearch_lab.template_loader import render_template
 
 
 def _echo_success(msg: str) -> None:
@@ -51,10 +47,7 @@ def _find_lab() -> tuple[LabConfig, Path]:
 
 def _render_template(template_name: str, **kwargs: str) -> str:
     """Read a template file and substitute placeholders."""
-    content = (_TEMPLATES / template_name).read_text()
-    if kwargs:
-        content = content.format(**kwargs)
-    return content
+    return render_template(template_name, **kwargs)
 
 
 @contextmanager
@@ -116,8 +109,6 @@ def init(name: str):
                 "AGENT.md",
                 name=name,
                 pipeline_dir=CONTAINER_PIPELINE_DIR,
-                data_dir=CONTAINER_DATA_DIR,
-                verdict_path=CONTAINER_VERDICT_PATH,
             )
         )
 

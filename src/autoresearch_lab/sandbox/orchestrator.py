@@ -24,6 +24,7 @@ from autoresearch_lab.config import HostServiceConfig, LabConfig
 from autoresearch_lab.harness.results import append_result, read_results
 from autoresearch_lab.net import is_port_open
 from autoresearch_lab.sandbox.stream_formatter import CostTracker, start_stream_thread
+from autoresearch_lab.template_loader import render_template
 
 VERDICT_FILENAME = "verdict.json"
 
@@ -311,15 +312,12 @@ def start_container(
         ]
     )
 
-    agent_prompt = (
-        f"IMPORTANT: Your FIRST action must be to use the Read tool to read "
-        f"the file {CONTAINER_AGENT_MD} — it contains your full instructions. "
-        f"Do NOT use ToolSearch or any other tool before reading {CONTAINER_AGENT_MD}. "
-        f"Do NOT hallucinate or guess the contents of {CONTAINER_AGENT_MD}. "
-        f"You MUST make exactly ONE change per experiment, evaluate, then write "
-        f"a verdict to {CONTAINER_VERDICT_PATH} and wait for it to be deleted "
-        f"before making the next change. Never make multiple changes without "
-        f"signaling a verdict between each one."
+    agent_prompt = render_template(
+        "agent_prompt.txt",
+        agent_md=CONTAINER_AGENT_MD,
+        data_dir=CONTAINER_DATA_DIR,
+        pipeline_dir=CONTAINER_PIPELINE_DIR,
+        verdict_path=CONTAINER_VERDICT_PATH,
     )
     if run_config.prompt:
         agent_prompt += "\n\nADDITIONAL INSTRUCTION: " + run_config.prompt
