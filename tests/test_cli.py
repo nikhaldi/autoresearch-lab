@@ -308,9 +308,7 @@ class TestDiagnose:
     def test_sample_flag(self, tmp_path, monkeypatch):
         runner = self._init_lab(tmp_path, monkeypatch)
 
-        result = runner.invoke(
-            cli, ["diagnose", "--data", "mydata", "--sample", "s1"]
-        )
+        result = runner.invoke(cli, ["diagnose", "--data", "mydata", "--sample", "s1"])
 
         assert result.exit_code == 0
         output = json.loads(result.output)
