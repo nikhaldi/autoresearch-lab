@@ -305,6 +305,26 @@ class TestDiagnose:
         assert len(output["per_sample"]) == 1
         assert output["per_sample"][0]["sample_id"] == "s2"
 
+    def test_sample_flag(self, tmp_path, monkeypatch):
+        runner = self._init_lab(tmp_path, monkeypatch)
+
+        result = runner.invoke(cli, ["diagnose", "--data", "mydata", "--sample", "s1"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["sample_id"] == "s1"
+        assert output["score"] == 0.03
+        assert "per_sample" not in output
+
+    def test_sample_flag_not_found(self, tmp_path, monkeypatch):
+        runner = self._init_lab(tmp_path, monkeypatch)
+
+        result = runner.invoke(
+            cli, ["diagnose", "--data", "mydata", "--sample", "nonexistent"]
+        )
+
+        assert result.exit_code != 0
+
     def test_requires_data_flag(self, tmp_path, monkeypatch):
         runner = self._init_lab(tmp_path, monkeypatch)
 
