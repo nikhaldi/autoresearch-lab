@@ -317,6 +317,7 @@ def start_container(
         agent_md=CONTAINER_AGENT_MD,
         data_dir=CONTAINER_DATA_DIR,
         pipeline_dir=CONTAINER_PIPELINE_DIR,
+        results_file=CONTAINER_RESULTS_FILE,
         verdict_path=CONTAINER_VERDICT_PATH,
     )
     if run_config.prompt:

@@ -325,7 +325,8 @@ def eval(data):
 @cli.command()
 @click.option("--data", required=True, help="Path to read-only data directory")
 @click.option("--top", type=int, default=None, help="Show only N worst samples")
-def diagnose(data, top):
+@click.option("--sample", default=None, help="Show only a specific sample by ID")
+def diagnose(data, top, sample):
     """Per-sample error analysis, worst first."""
     config, lab_root = _find_lab()
 
@@ -339,6 +340,20 @@ def diagnose(data, top):
             result = backend.evaluate(pipeline_dir, data_dir)
         finally:
             backend.teardown()
+
+    if sample:
+        matched = [s for s in result.sample_results if s.sample_id == sample]
+        if not matched:
+            click.echo(f"Sample '{sample}' not found", err=True)
+            sys.exit(1)
+        output = {
+            "sample_id": matched[0].sample_id,
+            "score": matched[0].score,
+            "error": matched[0].error,
+            **matched[0].extra,
+        }
+        click.echo(json.dumps(output, indent=2))
+        return
 
     # Sort by score, worst first
     sorted_samples = sorted(
