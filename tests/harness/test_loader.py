@@ -11,7 +11,12 @@ from pathlib import Path
 from autoresearch_lab.harness.backend import EvalBackend, EvalResult
 
 class MyBackend(EvalBackend):
-    def evaluate(self, pipeline_dir: Path, data_dir: Path) -> EvalResult:
+    def evaluate(
+        self,
+        pipeline_dir: Path,
+        data_dir: Path,
+        sample_ids: list[str] | None = None
+    ) -> EvalResult:
         return EvalResult(score=0.0)
 """
 

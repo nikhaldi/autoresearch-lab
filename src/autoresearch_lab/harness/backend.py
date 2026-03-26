@@ -53,12 +53,19 @@ class EvalBackend(ABC):
         self,
         pipeline_dir: Path,
         data_dir: Path,
+        sample_ids: list[str] | None = None,
     ) -> EvalResult:
-        """Run the pipeline on all samples.
+        """Run the pipeline and evaluate against data.
 
         Args:
             pipeline_dir: Path to the pipeline code the agent wrote.
             data_dir: Path to the read-only data directory.
+            sample_ids: Optional list of sample IDs to evaluate. When
+                provided, the backend may restrict evaluation to only
+                these samples, which can significantly speed up
+                diagnosis during the research loop. Implementing this
+                filtering is optional — if not implemented, the full
+                evaluation runs and the framework filters the results.
 
         Returns:
             EvalResult with a score and optional per-sample details.

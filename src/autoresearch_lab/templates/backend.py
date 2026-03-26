@@ -6,7 +6,12 @@ from autoresearch_lab.harness.backend import EvalBackend, EvalResult, SampleResu
 
 
 class Backend(EvalBackend):
-    def evaluate(self, pipeline_dir: Path, data_dir: Path) -> EvalResult:
+    def evaluate(
+        self,
+        pipeline_dir: Path,
+        data_dir: Path,
+        sample_ids: list[str] | None = None
+    ) -> EvalResult:
         raise NotImplementedError("Implement evaluation logic here")
         # Example:
         # return EvalResult(

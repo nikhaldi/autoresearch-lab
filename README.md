@@ -111,10 +111,14 @@ from pathlib import Path
 from autoresearch_lab.harness.backend import EvalBackend, EvalResult, SampleResult
 
 class MyBackend(EvalBackend):
-    def evaluate(self, pipeline_dir: Path, data_dir: Path) -> EvalResult:
+    def evaluate(self, pipeline_dir: Path, data_dir: Path,
+                 sample_ids: list[str] | None = None) -> EvalResult:
         # Run pipeline, compare against ground truth, compute your score.
         # The score is the single number the framework tracks (lower is better).
         # Extra metrics are logged but the framework only uses the score.
+        #
+        # If sample_ids is provided, you can optionally restrict evaluation
+        # to just those samples to speed up `arl diagnose --sample <id>`.
         return EvalResult(
             score=0.042,
             metrics={"my_metric": 0.042, "latency_ms": 150.0},

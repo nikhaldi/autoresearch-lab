@@ -337,7 +337,8 @@ def diagnose(data, top, sample):
         backend = load_backend(lab_root, config.backend)
         backend.setup()
         try:
-            result = backend.evaluate(pipeline_dir, data_dir)
+            sample_ids = [sample] if sample else None
+            result = backend.evaluate(pipeline_dir, data_dir, sample_ids)
         finally:
             backend.teardown()
 
