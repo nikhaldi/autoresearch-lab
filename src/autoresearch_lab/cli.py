@@ -197,12 +197,16 @@ def _preflight_checks(config: LabConfig, lab_root: Path) -> None:
 @click.option("--use-oauth-osx", is_flag=True, help="Use OAuth from Keychain")
 @click.option("--prompt", default=RunConfig.prompt, help="Additional agent instruction")
 @click.option("--dry-run", is_flag=True, help="Print config and exit")
-def run(**kwargs):
-    """Start the autonomous research loop."""
+@click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
+def run(claude_args, **kwargs):
+    """Start the autonomous research loop.
+
+    Extra arguments after -- are passed through to Claude Code.
+    """
     config, lab_root = _find_lab()
 
     image_tag = f"arl-agent-{config.safe_name}"
-    run_cfg = RunConfig(**kwargs, docker_image=image_tag)
+    run_cfg = RunConfig(**kwargs, docker_image=image_tag, claude_args=claude_args)
 
     if run_cfg.dry_run:
         click.echo(f"Lab:       {config.name}")

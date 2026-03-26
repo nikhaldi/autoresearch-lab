@@ -58,6 +58,7 @@ class RunConfig:
     data: str = ""
     dry_run: bool = False
     docker_image: str = "arl-agent"
+    claude_args: tuple[str, ...] = ()
 
 
 @dataclass
@@ -309,6 +310,7 @@ def start_container(
             "--model",
             run_config.model,
             "--dangerously-skip-permissions",
+            *run_config.claude_args,
         ]
     )
 
