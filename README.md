@@ -47,6 +47,9 @@ uv run arl init --name "my-lab"
 
 # Run the research loop
 uv run arl run --data ./my-data --max-iterations 20
+
+# Pass extra arguments to Claude Code after --
+uv run arl run --data ./my-data -- --effort high
 ```
 
 ## Usage
