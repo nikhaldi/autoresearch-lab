@@ -38,7 +38,7 @@ def append_result(
         writer.writerow(
             [
                 experiment_id,
-                datetime.datetime.now(datetime.UTC).isoformat(),
+                datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 f"{score:.6f}",
                 json.dumps(metrics) if metrics else "{}",
                 "yes" if kept else "no",

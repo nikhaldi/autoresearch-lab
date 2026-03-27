@@ -4,20 +4,9 @@ on:
   release:
     types: [published]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uv sync
-      - run: uv run ruff check
-      - run: uv run ruff format --check
-      - run: uv run pyright
-      - run: uv run pytest
+    uses: ./.github/workflows/check.yml
 
   publish:
     needs: check
@@ -28,5 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
