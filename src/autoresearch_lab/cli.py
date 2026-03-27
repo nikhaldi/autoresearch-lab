@@ -300,8 +300,26 @@ def run(claude_args, **kwargs):
 
 @cli.command()
 @click.option("--data", required=True, help="Path to read-only data directory")
-def eval(data):
-    """Run pipeline evaluation. Prints metrics as JSON."""
+@click.option("--verdict", default=None, help="Path to write verdict JSON")
+@click.option(
+    "--action",
+    type=click.Choice(["keep", "discard"]),
+    default=None,
+    help="Verdict action (requires --verdict)",
+)
+@click.option("--experiment-id", default=None, help="Experiment ID for verdict")
+@click.option("--notes", default="", help="Description of change for verdict")
+def eval(data, verdict, action, experiment_id, notes):
+    """Run pipeline evaluation. Prints metrics as JSON.
+
+    With --verdict, also writes a verdict file for the orchestrator.
+    This guarantees the score and metrics in the verdict match the
+    evaluation output exactly.
+    """
+    if verdict and not action:
+        click.echo("Error: --action is required when using --verdict", err=True)
+        sys.exit(1)
+
     config, lab_root = _find_lab()
 
     pipeline_dir = (lab_root / config.pipeline_dir).resolve()
@@ -325,6 +343,19 @@ def eval(data):
     output = {"score": result.score, **result.metrics}
     output["num_samples"] = len(result.sample_results)
     click.echo(json.dumps(output, indent=2))
+
+    if verdict:
+        verdict_data = {
+            "action": action,
+            "score": result.score,
+            "metrics": result.metrics,
+            "notes": notes,
+        }
+        if experiment_id:
+            verdict_data["experiment_id"] = experiment_id
+        verdict_path = Path(verdict)
+        verdict_path.parent.mkdir(parents=True, exist_ok=True)
+        verdict_path.write_text(json.dumps(verdict_data))
 
 
 @cli.command()
