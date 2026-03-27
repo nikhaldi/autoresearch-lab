@@ -298,28 +298,17 @@ def run(claude_args, **kwargs):
     run_session(run_cfg, config, lab_root)
 
 
+LAST_EVAL_FILENAME = ".last_eval.json"
+
+
 @cli.command()
 @click.option("--data", required=True, help="Path to read-only data directory")
-@click.option("--verdict", default=None, help="Path to write verdict JSON")
-@click.option(
-    "--action",
-    type=click.Choice(["keep", "discard"]),
-    default=None,
-    help="Verdict action (requires --verdict)",
-)
-@click.option("--experiment-id", default=None, help="Experiment ID for verdict")
-@click.option("--notes", default="", help="Description of change for verdict")
-def eval(data, verdict, action, experiment_id, notes):
+def eval(data):
     """Run pipeline evaluation. Prints metrics as JSON.
 
-    With --verdict, also writes a verdict file for the orchestrator.
-    This guarantees the score and metrics in the verdict match the
-    evaluation output exactly.
+    The result is cached so that `arl verdict` can reference it
+    without re-running the evaluation.
     """
-    if verdict and not action:
-        click.echo("Error: --action is required when using --verdict", err=True)
-        sys.exit(1)
-
     config, lab_root = _find_lab()
 
     pipeline_dir = (lab_root / config.pipeline_dir).resolve()
@@ -344,18 +333,53 @@ def eval(data, verdict, action, experiment_id, notes):
     output["num_samples"] = len(result.sample_results)
     click.echo(json.dumps(output, indent=2))
 
-    if verdict:
-        verdict_data = {
-            "action": action,
-            "score": result.score,
-            "metrics": result.metrics,
-            "notes": notes,
-        }
-        if experiment_id:
-            verdict_data["experiment_id"] = experiment_id
-        verdict_path = Path(verdict)
-        verdict_path.parent.mkdir(parents=True, exist_ok=True)
-        verdict_path.write_text(json.dumps(verdict_data))
+    # Cache for `arl verdict`
+    cache = {"score": result.score, "metrics": result.metrics}
+    cache_path = lab_root / LAST_EVAL_FILENAME
+    cache_path.write_text(json.dumps(cache))
+
+
+@cli.command()
+@click.option(
+    "--action",
+    type=click.Choice(["keep", "discard"]),
+    required=True,
+    help="Keep or discard the current experiment",
+)
+@click.option("--verdict-path", required=True, help="Path to write verdict JSON")
+@click.option("--experiment-id", default=None, help="Experiment ID")
+@click.option("--notes", default="", help="Description of change")
+def verdict(action, verdict_path, experiment_id, notes):
+    """Write a verdict using the score and metrics from the last eval.
+
+    This avoids re-running the evaluation and guarantees the verdict
+    matches the eval output exactly.
+    """
+    _config, lab_root = _find_lab()
+    cache_path = lab_root / LAST_EVAL_FILENAME
+
+    if not cache_path.exists():
+        click.echo(
+            "Error: no cached eval result. Run `arl eval` first.",
+            err=True,
+        )
+        sys.exit(1)
+
+    cached = json.loads(cache_path.read_text())
+
+    verdict_data = {
+        "action": action,
+        "score": cached["score"],
+        "metrics": cached["metrics"],
+        "notes": notes,
+    }
+    if experiment_id:
+        verdict_data["experiment_id"] = experiment_id
+
+    out = Path(verdict_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(verdict_data))
+    click.echo(json.dumps(verdict_data, indent=2))
 
 
 @cli.command()
