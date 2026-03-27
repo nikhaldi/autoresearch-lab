@@ -271,6 +271,7 @@ def run(claude_args, **kwargs):
                 err=True,
             )
             sys.exit(1)
+        build_context = config.sandbox.build_context or custom_dockerfile.parent
         click.echo(f"Building custom agent container ({image_tag})...")
         result = subprocess.run(
             [
@@ -280,7 +281,7 @@ def run(claude_args, **kwargs):
                 image_tag,
                 "-f",
                 str(custom_dockerfile),
-                str(custom_dockerfile.parent),
+                str(build_context),
             ],
             capture_output=True,
             text=True,

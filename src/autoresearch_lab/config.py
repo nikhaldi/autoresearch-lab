@@ -44,6 +44,7 @@ class SandboxConfig:
     """Sandbox configuration from lab.toml [sandbox]."""
 
     dockerfile: str | None = None
+    build_context: str | None = None
 
 
 @dataclass(frozen=True)

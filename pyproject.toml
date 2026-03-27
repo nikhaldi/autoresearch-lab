@@ -7,7 +7,7 @@ packages = ["src/autoresearch_lab"]
 
 [project]
 name = "autoresearch-lab"
-version = "0.2.0"
+version = "0.2.1"
 description = "Framework for generic AI research loops with measurable benchmarks"
 readme = "README.md"
 license = "MIT"
