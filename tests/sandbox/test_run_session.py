@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from autoresearch_lab.config import LabConfig
-from autoresearch_lab.harness.results import read_results
+from autoresearch_lab.harness.results import append_result, read_results
 from autoresearch_lab.sandbox.orchestrator import RunConfig, run_session
 
 MODULE = "autoresearch_lab.sandbox.orchestrator"
@@ -215,6 +215,49 @@ class TestRunSession:
 
         output = capsys.readouterr().out
         assert "Container crashed" in output
+
+    def test_resumes_experiment_numbering(self, tmp_path):
+        config = _init_lab(tmp_path)
+        results_tsv = tmp_path / "results.tsv"
+
+        # Seed results.tsv with 5 prior experiments
+        for i in range(1, 6):
+            append_result(
+                results_tsv,
+                experiment_id=f"exp_{i:03d}",
+                score=0.1 * i,
+                kept=True,
+                commit_sha=f"sha{i}",
+            )
+
+        run_cfg = RunConfig(max_iterations=2, data="data", iteration_timeout=0)
+
+        # Verdicts without experiment_id — should auto-assign
+        verdicts = [
+            {"action": "keep", "score": 0.04, "notes": "a"},
+            {"action": "discard", "score": 0.06, "notes": "b"},
+        ]
+        verdict_iter = iter(verdicts)
+        container = _make_container([None] * 10)
+
+        with (
+            patch(f"{MODULE}.start_container", return_value=container),
+            patch(
+                f"{MODULE}.wait_for_verdict",
+                side_effect=lambda *a, **kw: next(verdict_iter),
+            ),
+            patch(f"{MODULE}.git_commit", return_value="sha_new"),
+            patch(f"{MODULE}.git_amend_with_results"),
+            patch(f"{MODULE}.git_revert"),
+        ):
+            run_session(run_cfg, config, tmp_path)
+
+        rows = read_results(results_tsv)
+        # 5 existing + 2 new = 7
+        assert len(rows) == 7
+        # New experiments should continue from exp_006
+        assert rows[5]["experiment_id"] == "exp_006"
+        assert rows[6]["experiment_id"] == "exp_007"
 
     def test_best_score_tracked(self, tmp_path):
         config = _init_lab(tmp_path)
