@@ -267,20 +267,42 @@ class TestEval:
 
         assert result.exit_code != 0
 
-    def test_verdict_writes_file(self, tmp_path, monkeypatch):
+    def test_eval_caches_result(self, tmp_path, monkeypatch):
         runner = self._init_lab(tmp_path, monkeypatch)
-        verdict_path = tmp_path / "verdicts" / "verdict.json"
+
+        runner.invoke(cli, ["eval", "--data", "mydata"])
+
+        cache_path = tmp_path / ".last_eval.json"
+        assert cache_path.exists()
+        cached = json.loads(cache_path.read_text())
+        assert cached["score"] == 0.042
+        assert cached["metrics"] == {"accuracy": 0.958, "latency_ms": 123.4}
+
+
+class TestVerdict:
+    def _init_lab_with_eval(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "test-lab"])
+        (tmp_path / "pipeline").mkdir(exist_ok=True)
+        (tmp_path / "mydata").mkdir()
+        (tmp_path / BackendConfig.module).write_text(EVAL_BACKEND)
+        # Run eval to populate the cache
+        runner.invoke(cli, ["eval", "--data", "mydata"])
+        return runner
+
+    def test_verdict_writes_file(self, tmp_path, monkeypatch):
+        runner = self._init_lab_with_eval(tmp_path, monkeypatch)
+        vpath = tmp_path / "verdicts" / "verdict.json"
 
         result = runner.invoke(
             cli,
             [
-                "eval",
-                "--data",
-                "mydata",
-                "--verdict",
-                str(verdict_path),
+                "verdict",
                 "--action",
                 "keep",
+                "--verdict-path",
+                str(vpath),
                 "--experiment-id",
                 "exp_001",
                 "--notes",
@@ -289,46 +311,46 @@ class TestEval:
         )
 
         assert result.exit_code == 0
-        assert verdict_path.exists()
-        verdict = json.loads(verdict_path.read_text())
+        assert vpath.exists()
+        verdict = json.loads(vpath.read_text())
         assert verdict["action"] == "keep"
         assert verdict["score"] == 0.042
         assert verdict["metrics"] == {"accuracy": 0.958, "latency_ms": 123.4}
         assert verdict["experiment_id"] == "exp_001"
         assert verdict["notes"] == "improved accuracy"
 
-    def test_verdict_requires_action(self, tmp_path, monkeypatch):
-        runner = self._init_lab(tmp_path, monkeypatch)
+    def test_verdict_without_experiment_id(self, tmp_path, monkeypatch):
+        runner = self._init_lab_with_eval(tmp_path, monkeypatch)
+        vpath = tmp_path / "verdict.json"
 
         result = runner.invoke(
             cli,
-            ["eval", "--data", "mydata", "--verdict", str(tmp_path / "v.json")],
+            ["verdict", "--action", "discard", "--verdict-path", str(vpath)],
         )
 
-        assert result.exit_code != 0
-        assert "--action is required" in result.output
+        assert result.exit_code == 0
+        verdict = json.loads(vpath.read_text())
+        assert verdict["action"] == "discard"
+        assert "experiment_id" not in verdict
 
-    def test_verdict_without_experiment_id(self, tmp_path, monkeypatch):
-        runner = self._init_lab(tmp_path, monkeypatch)
-        verdict_path = tmp_path / "verdict.json"
+    def test_verdict_requires_prior_eval(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "test-lab"])
 
         result = runner.invoke(
             cli,
             [
-                "eval",
-                "--data",
-                "mydata",
-                "--verdict",
-                str(verdict_path),
+                "verdict",
                 "--action",
-                "discard",
+                "keep",
+                "--verdict-path",
+                str(tmp_path / "v.json"),
             ],
         )
 
-        assert result.exit_code == 0
-        verdict = json.loads(verdict_path.read_text())
-        assert verdict["action"] == "discard"
-        assert "experiment_id" not in verdict
+        assert result.exit_code != 0
+        assert "Run `arl eval` first" in result.output
 
 
 class TestDiagnose:
