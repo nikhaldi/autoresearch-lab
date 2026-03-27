@@ -6,10 +6,11 @@ Repeat this loop for each experiment:
 
 1. UNDERSTAND: Run `arl diagnose --data {data_dir}` to see current failures (use `--sample <id>` to inspect a specific sample). Read {results_file} to see what has been tried before.
 2. CHANGE: Make exactly ONE focused change to code in {pipeline_dir}/. Never make multiple changes per experiment.
-3. EVALUATE: Run `arl eval --data {data_dir}` to get the new score.
-4. VERDICT: Write a JSON verdict to {verdict_path}:
-   If improved: {{"action": "keep", "experiment_id": "exp_NNN", "score": <score>, "notes": "Description of change"}}
-   If not improved: {{"action": "discard", "experiment_id": "exp_NNN", "score": <score>, "notes": "Description of change"}}
+3. EVALUATE: Run `arl eval --data {data_dir}` to inspect the score. You can run eval as many times as you like without side effects.
+4. VERDICT: When you are ready to commit to a decision, run eval with --verdict to signal the orchestrator:
+   If improved: `arl eval --data {data_dir} --verdict {verdict_path} --action keep --notes "Description of change"`
+   If not improved: `arl eval --data {data_dir} --verdict {verdict_path} --action discard --notes "Description of change"`
+   The score and metrics are captured automatically from the evaluation — do NOT write verdict.json manually.
 5. WAIT: Run `while [ -f {verdict_path} ]; do sleep 1; done`
 6. Go back to step 1.
 
