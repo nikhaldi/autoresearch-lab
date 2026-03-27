@@ -30,3 +30,13 @@ jobs:
         with:
           enable-cache: true
       - run: uv run --python ${{ matrix.python-version }} pytest
+
+  pass:
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            exit 1
+          fi
