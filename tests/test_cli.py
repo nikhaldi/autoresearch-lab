@@ -267,6 +267,69 @@ class TestEval:
 
         assert result.exit_code != 0
 
+    def test_verdict_writes_file(self, tmp_path, monkeypatch):
+        runner = self._init_lab(tmp_path, monkeypatch)
+        verdict_path = tmp_path / "verdicts" / "verdict.json"
+
+        result = runner.invoke(
+            cli,
+            [
+                "eval",
+                "--data",
+                "mydata",
+                "--verdict",
+                str(verdict_path),
+                "--action",
+                "keep",
+                "--experiment-id",
+                "exp_001",
+                "--notes",
+                "improved accuracy",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert verdict_path.exists()
+        verdict = json.loads(verdict_path.read_text())
+        assert verdict["action"] == "keep"
+        assert verdict["score"] == 0.042
+        assert verdict["metrics"] == {"accuracy": 0.958, "latency_ms": 123.4}
+        assert verdict["experiment_id"] == "exp_001"
+        assert verdict["notes"] == "improved accuracy"
+
+    def test_verdict_requires_action(self, tmp_path, monkeypatch):
+        runner = self._init_lab(tmp_path, monkeypatch)
+
+        result = runner.invoke(
+            cli,
+            ["eval", "--data", "mydata", "--verdict", str(tmp_path / "v.json")],
+        )
+
+        assert result.exit_code != 0
+        assert "--action is required" in result.output
+
+    def test_verdict_without_experiment_id(self, tmp_path, monkeypatch):
+        runner = self._init_lab(tmp_path, monkeypatch)
+        verdict_path = tmp_path / "verdict.json"
+
+        result = runner.invoke(
+            cli,
+            [
+                "eval",
+                "--data",
+                "mydata",
+                "--verdict",
+                str(verdict_path),
+                "--action",
+                "discard",
+            ],
+        )
+
+        assert result.exit_code == 0
+        verdict = json.loads(verdict_path.read_text())
+        assert verdict["action"] == "discard"
+        assert "experiment_id" not in verdict
+
 
 class TestDiagnose:
     def _init_lab(self, tmp_path, monkeypatch):
