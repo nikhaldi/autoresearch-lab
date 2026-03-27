@@ -99,6 +99,13 @@ def check_stop_conditions(
 
 def git_commit(pipeline_dir: Path, message: str, cwd: Path) -> str:
     """Commit pipeline changes, return the commit SHA."""
+    # Reset staging area to avoid committing unrelated changes
+    subprocess.run(
+        ["git", "reset", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+    )
     result = subprocess.run(
         ["git", "add", str(pipeline_dir)],
         capture_output=True,
