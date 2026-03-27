@@ -27,6 +27,7 @@ from autoresearch_lab.sandbox.stream_formatter import CostTracker, start_stream_
 from autoresearch_lab.template_loader import render_template
 
 VERDICT_FILENAME = "verdict.json"
+EXPERIMENT_ID_PREFIX = "exp_"
 
 # Container-side mount paths — these define the contract between the
 # orchestrator and the agent. AGENT.md templates reference these paths.
@@ -374,9 +375,18 @@ def run_session(
 
     clear_verdict(verdict_path)
 
-    # Determine starting experiment number from existing results
+    # Determine starting experiment number from the highest existing ID
     existing = read_results(results_tsv)
-    start_exp = len(existing)
+    start_exp = 0
+    for row in existing:
+        exp_id = row.get("experiment_id", "")
+        if exp_id.startswith(EXPERIMENT_ID_PREFIX):
+            try:
+                num = int(exp_id[len(EXPERIMENT_ID_PREFIX) :])
+                if num > start_exp:
+                    start_exp = num
+            except ValueError:
+                pass
 
     state = SessionState(start_time=time.time())
 
@@ -516,7 +526,9 @@ def run_session(
 
             action = verdict.get("action", "discard")
             exp_num = start_exp + state.iteration
-            exp_id = verdict.get("experiment_id", f"exp_{exp_num:03d}")
+            exp_id = verdict.get(
+                "experiment_id", f"{EXPERIMENT_ID_PREFIX}{exp_num:03d}"
+            )
             notes = verdict.get("notes", "")
             score = float(verdict.get("score", 1.0))
             metrics = verdict.get("metrics", {})
