@@ -498,3 +498,148 @@ def results(best, last, fmt):
             )
             extra = f"  {metrics_str}" if metrics_str else ""
             click.echo(f"  {kept} {exp:>12s}  score={score}{extra}  {notes}")
+
+
+def _parse_label_path(arg: str) -> tuple[str, str]:
+    """Parse a ``label:path`` argument or infer the label.
+
+    Supports explicit ``"My Label:/some/results.tsv"`` syntax.
+    If no label prefix is given, tries to read the lab name from
+    a sibling ``lab.toml``, falling back to the parent directory name.
+    """
+    # Only split on the first colon, but not if it looks like a
+    # Windows drive letter (e.g. C:\\...) or the part before the
+    # colon doesn't exist as a file.
+    if ":" in arg:
+        head, tail = arg.split(":", 1)
+        if head and tail and not Path(arg).exists():
+            return head, tail
+
+    # Auto-detect label
+    p = Path(arg)
+    lab_toml = p.parent / LAB_CONFIG_FILENAME
+    if lab_toml.exists():
+        try:
+            cfg = LabConfig.load(p.parent)
+            if cfg.name:
+                return cfg.name, arg
+        except Exception:
+            pass
+    return p.parent.name, arg
+
+
+@cli.command()
+@click.option(
+    "-o",
+    "--output",
+    default=None,
+    help="Output file path (e.g. progress.png). Displays interactively if omitted.",
+)
+@click.option(
+    "--title",
+    default=None,
+    help="Custom chart title (default: 'Autoresearch Lab Progress').",
+)
+@click.option(
+    "--ymin",
+    default=None,
+    type=float,
+    help="Lower y-axis bound.",
+)
+@click.option(
+    "--ymax",
+    default=None,
+    type=float,
+    help="Upper y-axis bound (cap outliers).",
+)
+@click.option(
+    "--ylabel",
+    default=None,
+    help="Custom y-axis label (default: 'Score (lower is better)').",
+)
+@click.option(
+    "--xlabel",
+    default=None,
+    help="Custom x-axis label (default: 'Experiment #').",
+)
+@click.option(
+    "--figsize",
+    default=None,
+    help="Figure size as WIDTHxHEIGHT in inches (default: 14x7).",
+)
+@click.option(
+    "--no-labels",
+    is_flag=True,
+    help="Hide text annotations on kept experiments.",
+)
+@click.argument("extra_results", nargs=-1)
+def plot(output, title, ymin, ymax, ylabel, xlabel, figsize, no_labels, extra_results):
+    """Plot experiment progress chart from results.
+
+    Optionally pass extra results.tsv file paths to compare
+    multiple labs in the same chart. Use LABEL:PATH syntax
+    to set a custom label (e.g. "iOS Lab:../ios/results.tsv").
+    Otherwise the label is inferred from a sibling lab.toml
+    or the parent directory name.
+
+    Requires matplotlib: install with `pip install autoresearch-lab[plot]`
+    """
+    try:
+        from autoresearch_lab.plot import plot_results
+    except ImportError:
+        click.echo(
+            "Error: matplotlib is required for plotting.\n"
+            "Install with: pip install 'autoresearch-lab[plot]'",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Build list of (label, rows) to plot
+    series: list[tuple[str, list[dict[str, str]]]] = []
+
+    config, lab_root = _find_lab()
+    results_path = lab_root / config.results_file
+    rows = read_results(results_path)
+    if rows:
+        lab_label = config.name or lab_root.name
+        series.append((lab_label, rows))
+
+    for arg in extra_results:
+        label, path_str = _parse_label_path(arg)
+        p = Path(path_str)
+        if not p.exists():
+            click.echo(f"Error: file not found: {p}", err=True)
+            sys.exit(1)
+        extra_rows = read_results(p)
+        if extra_rows:
+            series.append((label, extra_rows))
+
+    if not series:
+        click.echo("No results yet.")
+        return
+
+    parsed_figsize = None
+    if figsize:
+        try:
+            w, h = figsize.split("x")
+            parsed_figsize = (float(w), float(h))
+        except ValueError:
+            click.echo(
+                "Error: --figsize must be WIDTHxHEIGHT (e.g. 14x7)",
+                err=True,
+            )
+            sys.exit(1)
+
+    plot_results(
+        series,
+        output,
+        title=title,
+        ymin=ymin,
+        ymax=ymax,
+        ylabel=ylabel,
+        xlabel=xlabel,
+        figsize=parsed_figsize,
+        show_labels=not no_labels,
+    )
+    if output:
+        click.echo(f"Saved plot to {output}")
