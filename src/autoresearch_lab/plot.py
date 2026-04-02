@@ -78,11 +78,7 @@ def _plot_series(ax, rows, label, color, show_labels=True):
 
     for x, y, note in zip(kept_numbers, kept_scores, kept_notes):
         if show_labels and note:
-            text = (
-                f"{note} ({y:.2f})"
-                if len(note) < 40
-                else f"{note[:37]}..."
-            )
+            text = f"{note} ({y:.2f})" if len(note) < 40 else f"{note[:37]}..."
             ax.annotate(
                 text,
                 (x, y),
@@ -97,9 +93,7 @@ def _plot_series(ax, rows, label, color, show_labels=True):
     n_total = len(experiments)
 
     # Update the step-line legend entry with counts
-    ax.lines[-1].set_label(
-        f"{label} ({n_total} experiments, {n_kept} kept)"
-    )
+    ax.lines[-1].set_label(f"{label} ({n_total} experiments, {n_kept} kept)")
 
 
 def plot_results(

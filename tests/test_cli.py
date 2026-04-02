@@ -564,9 +564,7 @@ class TestPlot:
         runner = self._init_lab_with_results(tmp_path, monkeypatch)
         out_path = tmp_path / "out.png"
 
-        result = runner.invoke(
-            cli, ["plot", "--output", str(out_path)]
-        )
+        result = runner.invoke(cli, ["plot", "--output", str(out_path)])
 
         assert result.exit_code == 0
         assert "Saved plot" in result.output
@@ -609,9 +607,7 @@ class TestPlot:
         real_import = builtins.__import__
 
         # Remove cached plot module so the import is attempted fresh
-        monkeypatch.delitem(
-            sys.modules, "autoresearch_lab.plot", raising=False
-        )
+        monkeypatch.delitem(sys.modules, "autoresearch_lab.plot", raising=False)
 
         def mock_import(name, *args, **kwargs):
             if name == "autoresearch_lab.plot":
