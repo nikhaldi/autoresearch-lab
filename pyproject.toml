@@ -29,6 +29,9 @@ dependencies = [
     "dacite~=1.9",
 ]
 
+[project.optional-dependencies]
+plot = ["matplotlib~=3.9"]
+
 [project.urls]
 Homepage = "https://github.com/nikhaldi/autoresearch-lab"
 Repository = "https://github.com/nikhaldi/autoresearch-lab"
@@ -42,6 +45,7 @@ dev = [
     "ruff~=0.8",
     "pytest~=8.0",
     "pyright~=1.1",
+    "matplotlib~=3.9",
 ]
 
 [tool.uv]

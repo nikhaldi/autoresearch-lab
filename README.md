@@ -83,6 +83,7 @@ The agent runs inside a sandboxed Docker container with restricted filesystem ac
 | `arl eval`     | Evaluate pipeline (prints JSON metrics)       |
 | `arl diagnose` | Per-sample error analysis, worst first        |
 | `arl results`  | Print experiment history from results.tsv     |
+| `arl plot`     | Plot experiment progress chart (requires `matplotlib`) |
 
 ### Configuration
 
@@ -166,6 +167,26 @@ Then point to it in `lab.toml`:
 [sandbox]
 dockerfile = "Dockerfile"
 ```
+
+### Plotting results
+
+Visualize experiment progress as a scatter plot with a running-best line:
+
+```bash
+# Install the optional plot dependency
+uv add 'autoresearch-lab[plot]'
+
+# Show interactive plot
+uv run arl plot
+
+# Save to file
+uv run arl plot --output progress.png
+
+# Compare multiple labs (pass extra results.tsv files)
+uv run arl plot ../other-lab/results.tsv -o comparison.png
+```
+
+The chart shows all experiments with a step line tracking the running best score over time. When comparing multiple labs, each gets its own color in the legend.
 
 ### Stopping conditions
 

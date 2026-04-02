@@ -10,9 +10,10 @@ See README.md for project overview and usage documentation.
 uv sync              # Install deps (dev deps included by default)
 uv run pytest        # Run all tests
 uv run pytest tests/test_cli.py::test_init  # Run a single test
-uv run ruff check    # Lint
-uv run ruff format   # Format
-uv run pyright       # Type check
+uv run ruff check         # Lint
+uv run ruff format --check  # Verify formatting (CI runs this)
+uv run ruff format        # Auto-fix formatting
+uv run pyright            # Type check
 ```
 
 ## Code conventions

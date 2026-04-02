@@ -518,3 +518,191 @@ class TestResults:
 
         assert result.exit_code == 0
         assert "No results yet" in result.output
+
+
+class TestPlot:
+    def _init_lab_with_results(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "test-lab"])
+
+        from autoresearch_lab.harness.results import append_result
+
+        results_path = tmp_path / LabConfig.results_file
+        append_result(
+            results_path,
+            experiment_id="exp_001",
+            score=0.10,
+            kept=True,
+            commit_sha="aaa111",
+            notes="baseline",
+        )
+        append_result(
+            results_path,
+            experiment_id="exp_002",
+            score=0.12,
+            kept=False,
+            commit_sha="reverted",
+            notes="worse",
+        )
+        append_result(
+            results_path,
+            experiment_id="exp_003",
+            score=0.05,
+            kept=True,
+            commit_sha="bbb222",
+            notes="better",
+        )
+        return runner
+
+    def test_saves_to_file(self, tmp_path, monkeypatch):
+        """Plot renders a real PNG file."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        runner = self._init_lab_with_results(tmp_path, monkeypatch)
+        out_path = tmp_path / "out.png"
+
+        result = runner.invoke(cli, ["plot", "--output", str(out_path)])
+
+        assert result.exit_code == 0
+        assert "Saved plot" in result.output
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
+
+    def test_shows_interactive(self, tmp_path, monkeypatch):
+        """Plot calls plt.show() when no output file is given."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        runner = self._init_lab_with_results(tmp_path, monkeypatch)
+
+        with patch("matplotlib.pyplot.show") as mock_show:
+            result = runner.invoke(cli, ["plot"])
+
+        assert result.exit_code == 0
+        mock_show.assert_called_once()
+
+    def test_empty_results(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "test-lab"])
+
+        result = runner.invoke(cli, ["plot"])
+
+        assert result.exit_code == 0
+        assert "No results yet" in result.output
+
+    def test_missing_matplotlib(self, tmp_path, monkeypatch):
+        """Shows helpful error when matplotlib is not installed."""
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "test-lab"])
+
+        import builtins
+        import sys
+
+        real_import = builtins.__import__
+
+        # Remove cached plot module so the import is attempted fresh
+        monkeypatch.delitem(sys.modules, "autoresearch_lab.plot", raising=False)
+
+        def mock_import(name, *args, **kwargs):
+            if name == "autoresearch_lab.plot":
+                raise ImportError("No module named 'matplotlib'")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = runner.invoke(cli, ["plot"])
+
+        assert result.exit_code != 0
+        assert "matplotlib is required" in result.output
+
+    def test_multi_lab_comparison(self, tmp_path, monkeypatch):
+        """Plot multiple results files in the same chart."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        runner = self._init_lab_with_results(tmp_path, monkeypatch)
+
+        # Create a second results file in a sibling directory
+        from autoresearch_lab.harness.results import append_result
+
+        other_lab = tmp_path / "other-lab"
+        other_lab.mkdir()
+        other_results = other_lab / "results.tsv"
+        append_result(
+            other_results,
+            experiment_id="exp_001",
+            score=0.20,
+            kept=True,
+            commit_sha="ccc333",
+            notes="other baseline",
+        )
+        append_result(
+            other_results,
+            experiment_id="exp_002",
+            score=0.15,
+            kept=True,
+            commit_sha="ddd444",
+            notes="other improvement",
+        )
+
+        out_path = tmp_path / "comparison.png"
+        result = runner.invoke(
+            cli,
+            ["plot", "--output", str(out_path), str(other_results)],
+        )
+
+        assert result.exit_code == 0
+        assert "Saved plot" in result.output
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
+
+
+class TestParseLabelPath:
+    def test_explicit_label(self, tmp_path):
+        from autoresearch_lab.cli import _parse_label_path
+
+        label, path = _parse_label_path(f"My Lab:{tmp_path / 'r.tsv'}")
+        assert label == "My Lab"
+        assert path == str(tmp_path / "r.tsv")
+
+    def test_infer_from_lab_toml(self, tmp_path, monkeypatch):
+        from autoresearch_lab.cli import _parse_label_path
+
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        runner.invoke(cli, ["init", "--name", "cool-lab"])
+
+        results_path = tmp_path / LabConfig.results_file
+        label, path = _parse_label_path(str(results_path))
+        assert label == "cool-lab"
+        assert path == str(results_path)
+
+    def test_fallback_to_directory_name(self, tmp_path):
+        from autoresearch_lab.cli import _parse_label_path
+
+        sub = tmp_path / "my-dir"
+        sub.mkdir()
+        results_file = sub / "results.tsv"
+        results_file.touch()
+
+        label, path = _parse_label_path(str(results_file))
+        assert label == "my-dir"
+        assert path == str(results_file)
+
+    def test_existing_file_with_colon_not_split(self, tmp_path):
+        """A path that exists should not be split on colons."""
+        from autoresearch_lab.cli import _parse_label_path
+
+        # Create a file whose full path is passed as arg
+        results_file = tmp_path / "results.tsv"
+        results_file.touch()
+
+        label, path = _parse_label_path(str(results_file))
+        # Should not try to split on any colon in the path
+        assert path == str(results_file)
