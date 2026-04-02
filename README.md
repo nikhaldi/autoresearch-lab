@@ -188,6 +188,10 @@ uv run arl plot ../other-lab/results.tsv -o comparison.png
 
 The chart shows all experiments with a step line tracking the running best score over time. When comparing multiple labs, each gets its own color in the legend.
 
+Example plot (from [BookSnap](https://github.com/nikhaldi/booksnap)):
+
+![Example experiment progress plot](docs/booksnap-plot.png)
+
 ### Stopping conditions
 
 `arl run` stops when any condition is met:
