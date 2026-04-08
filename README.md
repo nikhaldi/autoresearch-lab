@@ -15,6 +15,8 @@ Autoresearch Lab implements the pattern in a somewhat generic way:
 - **Integrates into existing git repos.** You can create a "lab" inside an existing git repo to persist the research loops's configuration and state. This makes it easy to stop and continue the loop, to collaborate on it with others and to keep developing a piece of code through a combination of autoresearch and human input.
 - **Host service support.** Some pipelines can't run inside a Docker container (e.g. mobile code that needs an emulator or device). The framework can manage host-side services and forward ports into the sandbox, letting the agent's code run on real hardware while still being orchestrated.
 
+For an extended account of the background [read this post](https://ngof.nikhaldimann.com/p/growing-code-in-the-lab) which also explains autoresearch in general.
+
 ### Example applications
 
 To understand the lab pattern it may be easiest to look at real examples. [BookSnap](https://github.com/nikhaldi/booksnap) is a book scanning library for mobile phones, with a text recognition core developed in labs (see the [Android lab](https://github.com/nikhaldi/booksnap/tree/main/android/lab) and [iOS lab](https://github.com/nikhaldi/booksnap/tree/main/ios/lab)). These examples also demonstrate how you can target an environment that can't be conventionally sandboxed with Docker.
