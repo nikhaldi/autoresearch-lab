@@ -42,7 +42,7 @@ arl = "autoresearch_lab.cli:cli"
 [dependency-groups]
 dev = [
     "ruff~=0.8",
-    "pytest~=8.0",
+    "pytest>=8,<10",
     "pyright~=1.1",
     "matplotlib~=3.9",
 ]
