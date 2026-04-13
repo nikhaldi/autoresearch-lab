@@ -14,10 +14,10 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv sync
-      - run: uv run ruff check
-      - run: uv run ruff format --check
-      - run: uv run pyright
+      - run: uv sync --locked
+      - run: uv run --locked ruff check
+      - run: uv run --locked ruff format --check
+      - run: uv run --locked pyright
 
   test:
     runs-on: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv run --python ${{ matrix.python-version }} pytest
+      - run: uv run --locked --python ${{ matrix.python-version }} pytest
 
   pass:
     if: always()
