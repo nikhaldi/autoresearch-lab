@@ -19,5 +19,5 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv build
+      - run: uv build --locked
       - uses: pypa/gh-action-pypi-publish@release/v1
