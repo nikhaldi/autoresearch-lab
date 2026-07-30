@@ -120,9 +120,11 @@ Implement `EvalBackend` from `autoresearch_lab.harness.backend`:
 from pathlib import Path
 from autoresearch_lab.harness.backend import EvalBackend, EvalResult, SampleResult
 
+
 class MyBackend(EvalBackend):
-    def evaluate(self, pipeline_dir: Path, data_dir: Path,
-                 sample_ids: list[str] | None = None) -> EvalResult:
+    def evaluate(
+        self, pipeline_dir: Path, data_dir: Path, sample_ids: list[str] | None = None
+    ) -> EvalResult:
         # Run pipeline, compare against ground truth, compute your score.
         # The score is the single number the framework tracks (lower is better).
         # Extra metrics are logged but the framework only uses the score.
